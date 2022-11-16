@@ -66,7 +66,7 @@ void set_lock(const homekit_value_t value) {
     atNight();
   }
   if(state == 3){
-    goOut();
+    close();
   }
   
   //report the lock-mechanism current-sate to HomeKit
