@@ -2,7 +2,7 @@
  * @Author: CuiYao 
  * @Date: 2022-11-18 10:08:51 
  * @Last Modified by: CuiYao
- * @Last Modified time: 2022-11-18 12:17:35
+ * @Last Modified time: 2022-11-18 13:00:13
  */
 
 
@@ -17,7 +17,9 @@
 int duration = 2000;            //长按触发时间 ms
 EasyButton button(PIN_BUTTON);  //声明按钮
 
-int active = 0;  //激活
+int active = 0;   //激活
+int program = 0;  ///计划
+int inuse = 0;    //是否在使用
 
 
 
@@ -48,7 +50,12 @@ void loop() {
 // access lock-mechanism HomeKit characteristics defined in my_accessory.c
 extern "C" homekit_server_config_t config;
 
-extern "C" homekit_characteristic_t cha_faucet_active;
+extern "C" homekit_characteristic_t cha_fan_on;
+extern "C" homekit_characteristic_t cha_rotation_direction;
+extern "C" homekit_characteristic_t cha_rotation_speed;
+extern "C" homekit_characteristic_t cha_swing_mode;
+extern "C" homekit_characteristic_t cha_lock_physical_controls;
+
 
 static uint32_t next_heap_millis = 0;
 
@@ -57,7 +64,7 @@ static uint32_t next_heap_millis = 0;
 void set_lock(const homekit_value_t value) {
 
   uint8_t state = value.int_value;
-  cha_faucet_active.value.int_value = state;
+  cha_fan_on.value.int_value = state;
 
   if (state == 0) {
     // lock-mechanism was unsecured by iOS Home APP
@@ -69,12 +76,12 @@ void set_lock(const homekit_value_t value) {
   }
 
   //report the lock-mechanism current-sate to HomeKit
-  homekit_characteristic_notify(&cha_faucet_active, cha_faucet_active.value);
+  homekit_characteristic_notify(&cha_fan_on, cha_fan_on.value);
 }
 
 void my_homekit_setup() {
 
-  cha_faucet_active.setter = set_lock;
+  cha_fan_on.setter = set_lock;
   arduino_homekit_setup(&config);
 }
 
@@ -108,25 +115,35 @@ void close_lock() {
 void onPressed() {
 
   if (active == 0) {
-    cha_faucet_active.value.int_value = 1;
+    cha_fan_on.value.int_value = 1;
     active = 1;
   } else if (active == 1) {
-    cha_faucet_active.value.int_value = 0;
+    cha_fan_on.value.int_value = 0;
     active = 0;
   }
 
   //report the lock-mechanism current-sate to HomeKit
-  homekit_characteristic_notify(&cha_faucet_active, cha_faucet_active.value);
+  homekit_characteristic_notify(&cha_fan_on, cha_fan_on.value);
 }
 // 长按事件函数
 void onPressedForDuration() {
   // if (inuse == 0) {
-  //   cha_in_use.value.int_value = 1;
+  //   cha_rotation_direction.value.int_value = 1;
   //   inuse = 1;
   // } else if (active == 1) {
-  //   cha_in_use.value.int_value = 0;
+  //   cha_rotation_direction.value.int_value = 0;
   //   inuse = 0;
   // }
   // //report the lock-mechanism current-sate to HomeKit
-  // homekit_characteristic_notify(&cha_in_use, cha_in_use.value);
+  // homekit_characteristic_notify(&cha_rotation_direction, cha_rotation_direction.value);
+
+  if (inuse == 0) {
+    cha_swing_mode.value.int_value = 1;
+    inuse = 1;
+  } else if (active == 1) {
+    cha_swing_mode.value.int_value = 0;
+    inuse = 0;
+  }
+  //report the lock-mechanism current-sate to HomeKit
+  homekit_characteristic_notify(&cha_swing_mode, cha_swing_mode.value);
 }
