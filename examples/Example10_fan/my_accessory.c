@@ -21,11 +21,8 @@ void my_accessory_identify(homekit_value_t _value) {
 homekit_characteristic_t cha_fan_on = HOMEKIT_CHARACTERISTIC_(ON, 0);
 //optional
 homekit_characteristic_t cha_name = HOMEKIT_CHARACTERISTIC_(NAME, "fan");
-homekit_characteristic_t cha_rotation_direction = HOMEKIT_CHARACTERISTIC_(ROTATION_DIRECTION,0);
 homekit_characteristic_t cha_rotation_speed = HOMEKIT_CHARACTERISTIC_(ROTATION_SPEED,50);
 homekit_characteristic_t cha_swing_mode = HOMEKIT_CHARACTERISTIC_(SWING_MODE,0);
-homekit_characteristic_t cha_lock_physical_controls= HOMEKIT_CHARACTERISTIC_(LOCK_PHYSICAL_CONTROLS,0);
-
 homekit_accessory_t *accessories[] = {
     HOMEKIT_ACCESSORY(.id=1, .category=homekit_accessory_category_fan, .services=(homekit_service_t*[]) {
         HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics=(homekit_characteristic_t*[]) {
@@ -40,10 +37,8 @@ homekit_accessory_t *accessories[] = {
     HOMEKIT_SERVICE(FAN, .primary=true, .characteristics=(homekit_characteristic_t*[]){
       &cha_fan_on,
       &cha_name,
-      &cha_rotation_direction,
       &cha_rotation_speed,
       &cha_swing_mode,
-      &cha_lock_physical_controls,
       NULL
     }),
         NULL

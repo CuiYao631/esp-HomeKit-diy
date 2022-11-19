@@ -10,17 +10,27 @@
 #include <arduino_homekit_server.h>
 #include <EasyButton.h>
 #include "wifi_info.h"
+#include "ESPRotary.h"
 
+#define ROTARY_PIN1 14
+#define ROTARY_PIN2 12
+#define PIN_BUTTON  13            //Button PIN          
+
+//编码器
+#define CLICKS_PER_STEP 4   //单步次数
+#define MIN_POS         0   //最小位置
+#define MAX_POS         100 //最大位置
+#define START_POS       5   //起始位置
+#define INCREMENT       2   //增量
+//LOG
 #define LOG_D(fmt, ...) printf_P(PSTR(fmt "\n"), ##__VA_ARGS__);
 
-#define PIN_BUTTON 0            //Button PIN
 int duration = 2000;            //长按触发时间 ms
+int active = 0;                 //激活
+float sped=0;                     //速度
+int inuse = 0;
 EasyButton button(PIN_BUTTON);  //声明按钮
-
-int active = 0;   //激活
-int program = 0;  ///计划
-int inuse = 0;    //是否在使用
-
+ESPRotary r;                    //编码器声明
 
 
 void setup() {
@@ -33,14 +43,21 @@ void setup() {
   //定义按键长按事件回调
   button.onPressedFor(duration, onPressedForDuration);
 
-  homekit_storage_reset();
+  //初始化编码器
+  r.begin(ROTARY_PIN1, ROTARY_PIN2, CLICKS_PER_STEP, MIN_POS, MAX_POS, START_POS, INCREMENT);
+  r.setChangedHandler(rotate);
+  // r.setLeftRotationHandler(showDirection);
+  // r.setRightRotationHandler(showDirection);
+
+  //homekit_storage_reset();
   my_homekit_setup();
 }
 
 void loop() {
   my_homekit_loop();
   button.read();
-  delay(10);
+  r.loop();
+  delay(10);  
 }
 
 //==============================
@@ -51,37 +68,48 @@ void loop() {
 extern "C" homekit_server_config_t config;
 
 extern "C" homekit_characteristic_t cha_fan_on;
-extern "C" homekit_characteristic_t cha_rotation_direction;
 extern "C" homekit_characteristic_t cha_rotation_speed;
 extern "C" homekit_characteristic_t cha_swing_mode;
-extern "C" homekit_characteristic_t cha_lock_physical_controls;
+
 
 
 static uint32_t next_heap_millis = 0;
 
 
 // called when the lock-mechanism target-set is changed by iOS Home APP
-void set_lock(const homekit_value_t value) {
+void fan_active(const homekit_value_t value) {
 
   uint8_t state = value.int_value;
   cha_fan_on.value.int_value = state;
-
+  active=state;
   if (state == 0) {
-    // lock-mechanism was unsecured by iOS Home APP
-    open_lock();
+    ON();
   }
   if (state == 1) {
-    // lock-mechanism was secured by iOS Home APP
-    close_lock();
+    
+    OFF();
   }
 
   //report the lock-mechanism current-sate to HomeKit
   homekit_characteristic_notify(&cha_fan_on, cha_fan_on.value);
 }
 
+void speed(const homekit_value_t value){
+
+  sped=value.float_value;
+  r.resetPosition(int(sped));
+  UpdataSpeed(sped);
+}
+void rotate(ESPRotary& r) {
+  sped=r.getPosition();
+  UpdataSpeed(float(sped));
+}
+
+
 void my_homekit_setup() {
 
-  cha_fan_on.setter = set_lock;
+  cha_fan_on.setter = fan_active;
+  cha_rotation_speed.setter = speed;
   arduino_homekit_setup(&config);
 }
 
@@ -100,25 +128,32 @@ void my_homekit_loop() {
 
 
 /* use this functions to let your lock mechanism do whatever yoi want */
-void open_lock() {
-  Serial.println("unsecure");
-  // add your code here eg switch a relay or whatever
+void ON() {
+  Serial.println("ON");
 }
 
-void close_lock() {
-  Serial.println("secure");
-  // add your code here eg switch a relay or whatever
+void OFF() {
+  Serial.println("OFF");
 }
+void UpdataSpeed(float value){
 
+  
+  Serial.println(value);
+  cha_rotation_speed.value.float_value = value;
+  homekit_characteristic_notify(&cha_rotation_speed, cha_rotation_speed.value);
+}
 
 // 单按事件函数
 void onPressed() {
 
   if (active == 0) {
     cha_fan_on.value.int_value = 1;
+    ON();
+    
     active = 1;
   } else if (active == 1) {
     cha_fan_on.value.int_value = 0;
+    OFF();
     active = 0;
   }
 
@@ -127,21 +162,12 @@ void onPressed() {
 }
 // 长按事件函数
 void onPressedForDuration() {
-  // if (inuse == 0) {
-  //   cha_rotation_direction.value.int_value = 1;
-  //   inuse = 1;
-  // } else if (active == 1) {
-  //   cha_rotation_direction.value.int_value = 0;
-  //   inuse = 0;
-  // }
-  // //report the lock-mechanism current-sate to HomeKit
-  // homekit_characteristic_notify(&cha_rotation_direction, cha_rotation_direction.value);
-
   if (inuse == 0) {
     cha_swing_mode.value.int_value = 1;
     inuse = 1;
   } else if (active == 1) {
     cha_swing_mode.value.int_value = 0;
+   
     inuse = 0;
   }
   //report the lock-mechanism current-sate to HomeKit
